@@ -56,22 +56,30 @@ object MajorityPeerSelect {
         }
         .flatMap {
           case (majorityOrdinal, _) =>
-            peers.traverse(snapshotClient.get(majorityOrdinal).run(_).flatMap(_.toHashed.map(_.hash)))
+            logger.debug(s"The majority ordinal among ${peers.size} peers is $majorityOrdinal") >>
+              peers.traverse(snapshotClient.get(majorityOrdinal).run(_).flatMap(_.toHashed.map(_.hash)))
         }
         .map(_.zip(peers))
         .map(_.groupMap { case (hash, _) => hash } { case (_, ps) => ps })
         .map(_.maxBy { case (_, peers) => peers.size })
-        .map { case (_, peerCandidates) => peerCandidates }
+        .flatMap {
+          case (majorityHash, peerCandidates) =>
+            logger.debug(
+              s"The majority hash at the majority ordinal is $majorityHash. There are ${peerCandidates.size} peers with that hash"
+            ) >>
+              peerCandidates.pure[F]
+        }
 
     def getPeerSublist(peers: Set[Peer]): F[List[Peer]] = {
       val maxSublistPercent = 0.25
       val maxSublistSize = Math.max((peers.size * maxSublistPercent).toInt, 1)
 
-      Random[F].nextIntBounded(maxSublistSize).flatMap { peerCount =>
-        Random[F]
-          .shuffleList(peers.toList)
-          .map(_.take(peerCount))
-      }
+      logger.debug(s"${peers.size} peers have been discovered. Selecting at most $maxSublistSize of them to filter.") >>
+        Random[F].nextIntBounded(maxSublistSize).flatMap { peerCount =>
+          Random[F]
+            .shuffleList(peers.toList)
+            .map(_.take(peerCount))
+        }
     }
   }
 }

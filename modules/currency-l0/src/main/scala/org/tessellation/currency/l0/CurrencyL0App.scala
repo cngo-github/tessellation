@@ -58,7 +58,7 @@ abstract class CurrencyL0App(
 
     for {
       queues <- Queues.make[IO](sdkQueues).asResource
-      p2pClient = P2PClient.make[IO](sdkP2PClient, sdkResources.client, sdkServices.session)
+      p2pClient = P2PClient.make[IO](sdkP2PClient, sdkResources.client, sdkServices.session, method.globalL0Peer)
       storages <- Storages.make[IO](sdkStorages, cfg.snapshot, method.globalL0Peer).asResource
       validators = Validators.make[IO](seedlist)
 

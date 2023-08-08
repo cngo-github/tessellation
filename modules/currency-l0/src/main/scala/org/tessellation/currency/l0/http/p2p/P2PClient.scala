@@ -5,6 +5,7 @@ import cats.effect.Async
 import org.tessellation.currency.l0.snapshot.CurrencySnapshotClient
 import org.tessellation.currency.l0.snapshot.CurrencySnapshotClient.CurrencySnapshotClient
 import org.tessellation.kryo.KryoSerializer
+import org.tessellation.schema.peer.L0Peer
 import org.tessellation.sdk.domain.cluster.services.Session
 import org.tessellation.sdk.http.p2p.SdkP2PClient
 import org.tessellation.sdk.http.p2p.clients._
@@ -18,7 +19,8 @@ object P2PClient {
   def make[F[_]: Async: SecurityProvider: KryoSerializer](
     sdkP2PClient: SdkP2PClient[F],
     client: Client[F],
-    session: Session[F]
+    session: Session[F],
+    l0Peer: L0Peer
   ): P2PClient[F] =
     new P2PClient[F](
       L0ClusterClient.make(client),
@@ -27,7 +29,8 @@ object P2PClient {
       sdkP2PClient.node,
       StateChannelSnapshotClient.make(client),
       L0GlobalSnapshotClient.make(client),
-      CurrencySnapshotClient.make[F](client, session)
+      CurrencySnapshotClient.make[F](client, session),
+      L0TrustClient.make(client, l0Peer)
     ) {}
 }
 
@@ -38,5 +41,6 @@ sealed abstract class P2PClient[F[_]] private (
   val node: NodeClient[F],
   val stateChannelSnapshot: StateChannelSnapshotClient[F],
   val l0GlobalSnapshot: L0GlobalSnapshotClient[F],
-  val currencySnapshot: CurrencySnapshotClient[F]
+  val currencySnapshot: CurrencySnapshotClient[F],
+  val l0Trust: L0TrustClient[F]
 )

@@ -4,6 +4,7 @@ import cats.effect.Async
 
 import org.tessellation.dag.l1.domain.consensus.block.http.p2p.clients.BlockConsensusClient
 import org.tessellation.kryo.KryoSerializer
+import org.tessellation.schema.peer.L0Peer
 import org.tessellation.sdk.http.p2p.SdkP2PClient
 import org.tessellation.sdk.http.p2p.clients._
 import org.tessellation.sdk.infrastructure.gossip.p2p.GossipClient
@@ -16,7 +17,8 @@ object P2PClient {
   def make[F[_]: Async: SecurityProvider: KryoSerializer](
     sdkP2PClient: SdkP2PClient[F],
     client: Client[F],
-    currencyPathPrefix: String
+    currencyPathPrefix: String,
+    l0Peer: L0Peer
   ): P2PClient[F] =
     new P2PClient[F](
       sdkP2PClient.sign,
@@ -26,7 +28,8 @@ object P2PClient {
       L0BlockOutputClient.make(currencyPathPrefix, client),
       sdkP2PClient.gossip,
       BlockConsensusClient.make(client),
-      L0GlobalSnapshotClient.make(client)
+      L0GlobalSnapshotClient.make(client),
+      L0TrustClient.make(client, l0Peer)
     ) {}
 }
 
@@ -38,5 +41,6 @@ sealed abstract class P2PClient[F[_]] private (
   val l0BlockOutputClient: L0BlockOutputClient[F],
   val gossip: GossipClient[F],
   val blockConsensus: BlockConsensusClient[F],
-  val l0GlobalSnapshot: L0GlobalSnapshotClient[F]
+  val l0GlobalSnapshot: L0GlobalSnapshotClient[F],
+  val l0Trust: L0TrustClient[F]
 )

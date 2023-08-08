@@ -61,7 +61,8 @@ object Main
       p2pClient = P2PClient.make[IO](
         sdkP2PClient,
         sdkResources.client,
-        currencyPathPrefix = "dag"
+        currencyPathPrefix = "dag",
+        method.l0Peer
       )
       services = Services.make[IO, GlobalSnapshotStateProof, GlobalIncrementalSnapshot, GlobalSnapshotInfo](
         storages,

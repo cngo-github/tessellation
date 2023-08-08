@@ -85,10 +85,11 @@ abstract class CurrencyL1App(
           seedlist
         )
       dagP2PClient = DAGP2PClient
-        .make[IO](sdkP2PClient, sdkResources.client, currencyPathPrefix = "currency")
+        .make[IO](sdkP2PClient, sdkResources.client, currencyPathPrefix = "currency", method.globalL0Peer)
       p2pClient = P2PClient.make[IO](
         dagP2PClient,
-        sdkResources.client
+        sdkResources.client,
+        method.globalL0Peer
       )
       services = Services
         .make[IO](

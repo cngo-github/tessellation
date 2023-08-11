@@ -20,7 +20,6 @@ final case class TrustRoutes[F[_]: Async: KryoSerializer](
   trustStorage: TrustStorage[F],
   trustPush: TrustPush[F]
 ) extends Http4sDsl[F] {
-  // import org.http4s.circe.CirceEntityCodec.circeEntityEncoder
 
   private[routes] val prefixPath = "/trust"
 

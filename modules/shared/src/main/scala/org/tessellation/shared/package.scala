@@ -14,7 +14,7 @@ import org.tessellation.schema.node.NodeState
 import org.tessellation.schema.peer.SignRequest
 import org.tessellation.schema.snapshot.StateProof
 import org.tessellation.schema.transaction._
-import org.tessellation.schema.trust.PublicTrust
+import org.tessellation.schema.trust.{PublicTrust, TrustScores}
 import org.tessellation.schema.{Block, _}
 import org.tessellation.security.signature.Signed
 import org.tessellation.security.signature.Signed.SignedOrdering
@@ -65,6 +65,7 @@ package object shared {
     classOf[SignedOrdering[_]] -> 335,
     Address.OrderingInstance.getClass -> 336,
     NodeState.Observing.getClass -> 337,
+    classOf[TrustScores] -> 338,
     classOf[GlobalSnapshot] -> 600,
     classOf[StateChannelSnapshotBinary] -> 601,
     classOf[SnapshotOrdinal] -> 602,

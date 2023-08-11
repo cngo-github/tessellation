@@ -1,7 +1,6 @@
 package org.tessellation
 
 import org.tessellation.ext.kryo._
-import org.tessellation.schema.trust.TrustScores
 import org.tessellation.sdk.domain.healthcheck.consensus.types.HealthCheckRoundId
 import org.tessellation.sdk.infrastructure.consensus.declaration.{Facility, MajoritySignature, Proposal}
 import org.tessellation.sdk.infrastructure.consensus.message._
@@ -46,7 +45,6 @@ package object sdk {
       classOf[IDN] -> 528,
       classOf[ConsensusPeerDeclaration[_, _]] -> 529,
       EventTrigger.getClass -> 530,
-      TimeTrigger.getClass -> 531,
-      classOf[TrustScores] -> 532
+      TimeTrigger.getClass -> 531
     ).union(sharedKryoRegistrar)
 }

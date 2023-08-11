@@ -5,7 +5,6 @@ import cats.effect.unsafe.implicits.global
 import cats.syntax.option._
 
 import scala.reflect.runtime.universe.TypeTag
-
 import org.tessellation.coreKryoRegistrar
 import org.tessellation.domain.cluster.programs.TrustPush
 import org.tessellation.ext.kryo._
@@ -17,7 +16,6 @@ import org.tessellation.sdk.config.types.TrustStorageConfig
 import org.tessellation.sdk.domain.gossip.Gossip
 import org.tessellation.sdk.domain.trust.storage.{TrustMap, TrustStorage}
 import org.tessellation.sdk.sdkKryoRegistrar
-
 import eu.timepit.refined.auto._
 import io.circe.Encoder
 import io.circe.syntax.EncoderOps
@@ -26,6 +24,9 @@ import org.http4s._
 import org.http4s.client.dsl.io._
 import org.http4s.syntax.literals._
 import suite.HttpSuite
+import weaver.Expectations
+import cats.syntax.eq._
+import cats.syntax.applicative._
 
 object TrustRoutesSuite extends HttpSuite {
 
@@ -91,8 +92,26 @@ object TrustRoutesSuite extends HttpSuite {
           test = TrustScores(test2)
           res = test.asJson
           _ = println(res)
-        } yield expectHttpBodyAndStatus(routes, req)(TrustScores(Map.empty), Status.Ok)
+        } yield expectHttpKryoBodyAndStatus(routes, req)(TrustScores(Map.empty), Status.Ok)
       }
       .unsafeRunSync()
   }
+
+  def expectHttpKryoBodyAndStatus[G[_]: KryoSerializer](routes: HttpRoutes[IO], req: Request[IO])(
+    expectedBody: TrustScores,
+    expectedStatus: Status
+  ): IO[Expectations] =
+    routes.run(req).value.flatMap {
+      case Some(resp) =>
+        val bytes = resp.body.toBinary.getOrElse(List.empty[Byte].toArray)
+        KryoSerializer[G]
+          .deserialize[TrustScores](bytes)
+          .map { obj =>
+            expect.all(expectedStatus === resp.status, expectedBody === obj)
+          }
+          .toOption
+          .get
+          .pure
+      case None => IO.pure(failure("route not found"))
+    }
 }

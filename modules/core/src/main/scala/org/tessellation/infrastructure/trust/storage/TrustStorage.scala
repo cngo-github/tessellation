@@ -1,20 +1,19 @@
 package org.tessellation.infrastructure.trust.storage
 
 import cats.Order.max
+import cats.data.{NonEmptyList, NonEmptySet}
 import cats.effect.Ref
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.option._
 import cats.syntax.partialOrder._
 import cats.{Monad, Order}
-
 import org.tessellation.infrastructure.trust.TrustModel
 import org.tessellation.schema.SnapshotOrdinal
 import org.tessellation.schema.peer.PeerId
 import org.tessellation.schema.trust._
 import org.tessellation.sdk.config.types.TrustStorageConfig
 import org.tessellation.sdk.domain.trust.storage._
-
 import derevo.circe.magnolia.encoder
 import derevo.derive
 import monocle.Monocle.toAppliedFocusOps
@@ -76,6 +75,16 @@ object TrustStorage {
         }
 
       def getTrust: F[TrustMap] = trustStoreRef.get.map(_.trust)
+
+      def getTrustScores(peerIds: NonEmptySet[PeerId]): F[Map[PeerId, Double]] =
+        getTrust
+          .map(getBiasedTrust(_).trust)
+          .map(_.view.mapValues(trustInfo => trustInfo.predictedTrust.orElse(trustInfo.trustLabel)))
+          .map {
+            _.collect {
+              case id -> Some(n) if peerIds.contains(id) => id -> n
+            }.toMap
+          }
 
       def updateTrustWithBiases(selfPeerId: PeerId): F[Unit] =
         trustStoreRef.update { store =>

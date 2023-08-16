@@ -1,6 +1,5 @@
 package org.tessellation.sdk.domain.trust.storage
 
-import cats.data.{NonEmptyList, NonEmptySet}
 import org.tessellation.schema.SnapshotOrdinal
 import org.tessellation.schema.peer.PeerId
 import org.tessellation.schema.trust._
@@ -19,5 +18,5 @@ trait TrustStorage[F[_]] {
   def updateNext(peerId: PeerId, publicTrust: SnapshotOrdinalPublicTrust): F[Unit]
 
   def getPublicTrust: F[PublicTrust]
-  def getTrustScores(peerIds: NonEmptySet[PeerId]): F[Map[PeerId, Double]]
+  def getTrustScores: F[Map[PeerId, Double]]
 }

@@ -1,7 +1,6 @@
 package org.tessellation.infrastructure.trust.storage
 
 import cats.Order.max
-import cats.data.{NonEmptyList, NonEmptySet}
 import cats.effect.Ref
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -76,15 +75,9 @@ object TrustStorage {
 
       def getTrust: F[TrustMap] = trustStoreRef.get.map(_.trust)
 
-      def getTrustScores(peerIds: NonEmptySet[PeerId]): F[Map[PeerId, Double]] =
+      def getTrustScores: F[Map[PeerId, Double]] =
         getTrust
           .map(getBiasedTrust(_).trust)
-          .map(_.view.mapValues(trustInfo => trustInfo.predictedTrust.orElse(trustInfo.trustLabel)))
-          .map {
-            _.collect {
-              case id -> Some(n) if peerIds.contains(id) => id -> n
-            }.toMap
-          }
 
       def updateTrustWithBiases(selfPeerId: PeerId): F[Unit] =
         trustStoreRef.update { store =>

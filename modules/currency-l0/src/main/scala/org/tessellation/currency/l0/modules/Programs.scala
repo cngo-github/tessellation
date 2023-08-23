@@ -1,19 +1,17 @@
 package org.tessellation.currency.l0.modules
 
 import java.security.KeyPair
-
 import cats.effect.Async
 import cats.effect.std.Random
-
 import org.tessellation.currency.l0.http.p2p.P2PClient
 import org.tessellation.currency.l0.snapshot.programs.{Download, Genesis, Rollback}
 import org.tessellation.kryo.KryoSerializer
 import org.tessellation.schema.peer.{L0Peer, PeerId}
 import org.tessellation.sdk.domain.cluster.programs.{Joining, L0PeerDiscovery, PeerDiscovery}
-import org.tessellation.sdk.domain.snapshot.PeerSelect
+import org.tessellation.sdk.domain.snapshot.{CandidatePeerSelect, PeerSelect}
 import org.tessellation.sdk.domain.snapshot.programs.Download
 import org.tessellation.sdk.infrastructure.genesis.{Loader => GenesisLoader}
-import org.tessellation.sdk.infrastructure.snapshot.{CurrencySnapshotContextFunctions, MajorityPeerSelect}
+import org.tessellation.sdk.infrastructure.snapshot.{CurrencySnapshotContextFunctions, MajorityPeerSelect, WeightedCandidatePeerSelect}
 import org.tessellation.sdk.modules.SdkPrograms
 import org.tessellation.security.SecurityProvider
 
@@ -29,7 +27,9 @@ object Programs {
     p2pClient: P2PClient[F],
     currencySnapshotContextFns: CurrencySnapshotContextFunctions[F]
   ): Programs[F] = {
-    val peerSelect: PeerSelect[F] = MajorityPeerSelect.make(storages.cluster, p2pClient.currencySnapshot)
+    val candidatePeerSelect: CandidatePeerSelect = WeightedCandidatePeerSelect.make
+    val peerSelect: PeerSelect[F] = MajorityPeerSelect.make(storages.cluster, p2pClient.currencySnapshot, candidatePeerSelect)
+
     val download = Download
       .make(
         p2pClient,

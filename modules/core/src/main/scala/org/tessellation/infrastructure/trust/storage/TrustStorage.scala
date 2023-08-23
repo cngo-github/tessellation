@@ -7,12 +7,14 @@ import cats.syntax.functor._
 import cats.syntax.option._
 import cats.syntax.partialOrder._
 import cats.{Monad, Order}
+
 import org.tessellation.infrastructure.trust.TrustModel
 import org.tessellation.schema.SnapshotOrdinal
 import org.tessellation.schema.peer.PeerId
 import org.tessellation.schema.trust._
 import org.tessellation.sdk.config.types.TrustStorageConfig
 import org.tessellation.sdk.domain.trust.storage._
+
 import derevo.circe.magnolia.encoder
 import derevo.derive
 import monocle.Monocle.toAppliedFocusOps
@@ -78,6 +80,13 @@ object TrustStorage {
       def getTrustScores: F[Map[PeerId, Double]] =
         getTrust
           .map(getBiasedTrust(_).trust)
+          .map(_.view.mapValues { trustInfo =>
+            trustInfo.predictedTrust match {
+              case None => trustInfo.trustLabel
+              case v    => v
+            }
+          }.toMap)
+          .map(_.collect { case (id, Some(value)) => id -> value })
 
       def updateTrustWithBiases(selfPeerId: PeerId): F[Unit] =
         trustStoreRef.update { store =>

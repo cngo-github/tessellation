@@ -10,19 +10,23 @@ import cats.syntax.functor._
 import cats.syntax.list._
 
 import scala.util.control.NoStackTrace
+
 import org.tessellation.schema.SnapshotOrdinal
 import org.tessellation.schema.peer.Peer
 import org.tessellation.schema.peer.Peer.toP2PContext
 import org.tessellation.schema.snapshot.{Snapshot, SnapshotInfo}
 import org.tessellation.sdk.domain.cluster.storage.ClusterStorage
-import org.tessellation.sdk.domain.snapshot.{CandidatePeerSelector, PeerSelect}
 import org.tessellation.sdk.domain.snapshot.PeerSelect._
+import org.tessellation.sdk.domain.snapshot.{CandidatePeerSelect, PeerSelect}
 import org.tessellation.sdk.domain.trust.storage.TrustStorage
 import org.tessellation.sdk.http.p2p.clients.SnapshotClient
 import org.tessellation.security.hash.Hash
+
 import derevo.cats.show
 import derevo.circe.magnolia.encoder
 import derevo.derive
+import eu.timepit.refined.auto._
+import eu.timepit.refined.types.numeric.PosInt
 import io.circe.syntax.EncoderOps
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
@@ -41,7 +45,7 @@ object MajorityPeerSelect {
 
   val maxConcurrentPeerInquiries = 10
   // val peerSampleRatio = 0.25
-  val minSampleSize = 20
+  val minSampleSize: PosInt = 20
 
   case object NoPeersToSelect extends NoStackTrace
 
@@ -49,7 +53,7 @@ object MajorityPeerSelect {
     storage: ClusterStorage[F],
     snapshotClient: SnapshotClient[F, S, SI],
     trustStorage: TrustStorage[F],
-    peerSelector: CandidatePeerSelector
+    peerSelector: CandidatePeerSelect
   ): PeerSelect[F] = new PeerSelect[F] {
 
     val logger = Slf4jLogger.getLoggerFromName[F](peerSelectLoggerName)
@@ -60,7 +64,7 @@ object MajorityPeerSelect {
 
     def getFilteredPeerDetails: F[FilteredPeerDetails] = for {
       peerTrust <- trustStorage.getTrustScores
-      maybePeers = peerSelector.select(peerTrust, minSampleSize)
+      maybePeers <- peerSelector.select(peerTrust, minSampleSize)
       // _ <- MonadThrow[F].fromOption(maybePeers, NoPeersToSelect)
       peers <- maybePeers.get.traverse { peerId =>
         storage.getResponsivePeers.map(_.find(_.id == peerId))

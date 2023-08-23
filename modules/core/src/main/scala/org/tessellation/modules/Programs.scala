@@ -13,9 +13,9 @@ import org.tessellation.infrastructure.snapshot.programs.RollbackLoader
 import org.tessellation.kryo.KryoSerializer
 import org.tessellation.schema.SnapshotOrdinal
 import org.tessellation.sdk.domain.cluster.programs.{Joining, PeerDiscovery}
-import org.tessellation.sdk.domain.snapshot.PeerSelect
 import org.tessellation.sdk.domain.snapshot.programs.Download
-import org.tessellation.sdk.infrastructure.snapshot.{GlobalSnapshotContextFunctions, MajorityPeerSelect}
+import org.tessellation.sdk.domain.snapshot.{CandidatePeerSelect, PeerSelect}
+import org.tessellation.sdk.infrastructure.snapshot.{GlobalSnapshotContextFunctions, MajorityPeerSelect, WeightedCandidatePeerSelect}
 import org.tessellation.sdk.modules.SdkPrograms
 import org.tessellation.security.SecurityProvider
 
@@ -32,7 +32,15 @@ object Programs {
     globalSnapshotContextFns: GlobalSnapshotContextFunctions[F]
   ): Programs[F] = {
     val trustPush = TrustPush.make(storages.trust, services.gossip)
-    val peerSelect: PeerSelect[F] = MajorityPeerSelect.make(storages.cluster, p2pClient.globalSnapshot)
+
+    val candidatePeerSelect: CandidatePeerSelect = WeightedCandidatePeerSelect.make
+    val peerSelect: PeerSelect[F] = MajorityPeerSelect.make(
+      storages.cluster,
+      p2pClient.globalSnapshot,
+      storages.trust,
+      candidatePeerSelect
+    )
+
     val download: Download[F] = Download
       .make[F](
         storages.snapshotDownload,
@@ -44,6 +52,7 @@ object Programs {
         services.consensus,
         peerSelect
       )
+
     val rollbackLoader = RollbackLoader.make(
       keyPair,
       config.snapshot,
@@ -51,7 +60,13 @@ object Programs {
       globalSnapshotContextFns
     )
 
-    new Programs[F](sdkPrograms.peerDiscovery, sdkPrograms.joining, trustPush, download, rollbackLoader) {}
+    new Programs[F](
+      sdkPrograms.peerDiscovery,
+      sdkPrograms.joining,
+      trustPush,
+      download,
+      rollbackLoader
+    ) {}
   }
 }
 

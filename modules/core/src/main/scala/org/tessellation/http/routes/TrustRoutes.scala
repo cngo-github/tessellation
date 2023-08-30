@@ -3,7 +3,6 @@ package org.tessellation.http.routes
 import cats.effect.Async
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
-import cats.syntax.functor._
 
 import org.tessellation.domain.cluster.programs.TrustPush
 import org.tessellation.http.routes.internal.{CliRoutes, InternalUrlPrefix, P2PRoutes}
@@ -46,9 +45,7 @@ final case class TrustRoutes[F[_]: Async: KryoSerializer](
       }
 
     case GET -> Root / "current" =>
-      trustStorage.getTrust
-        .map(_.trust.view.mapValues(_.predictedTrust))
-        .map(_.collect { case (k, Some(v)) => (k, v) }.toMap)
+      trustStorage.getPredictedTrustScores
         .flatMap(trust => Ok(TrustScores(trust)))
 
     case GET -> Root / "previous" =>

@@ -9,9 +9,9 @@ import cats.syntax.eq._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.list._
+import cats.syntax.traverse._
 
 import scala.util.control.NoStackTrace
-
 import org.tessellation.schema.SnapshotOrdinal
 import org.tessellation.schema.node.NodeState.Ready
 import org.tessellation.schema.peer.Peer.toP2PContext
@@ -22,11 +22,13 @@ import org.tessellation.sdk.domain.snapshot.PeerSelect
 import org.tessellation.sdk.domain.snapshot.PeerSelect._
 import org.tessellation.sdk.http.p2p.clients.SnapshotClient
 import org.tessellation.security.hash.Hash
-
 import derevo.cats.show
 import derevo.circe.magnolia.encoder
 import derevo.derive
+import eu.timepit.refined.numeric.Positive
+import eu.timepit.refined.refineV
 import io.circe.syntax.EncoderOps
+import org.tessellation.schema.trust.TrustScores
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 object MajorityPeerSelect {
@@ -50,7 +52,8 @@ object MajorityPeerSelect {
 
   def make[F[_]: Async: Random, S <: Snapshot, SI <: SnapshotInfo[_]](
     storage: ClusterStorage[F],
-    snapshotClient: SnapshotClient[F, S, SI]
+    snapshotClient: SnapshotClient[F, S, SI],
+    getTrustScores: F[TrustScores]
   ): PeerSelect[F] = new PeerSelect[F] {
 
     val logger = Slf4jLogger.getLoggerFromName[F](peerSelectLoggerName)
@@ -60,12 +63,9 @@ object MajorityPeerSelect {
       .map(_.selectedPeer)
 
     def getFilteredPeerDetails: F[FilteredPeerDetails] = for {
-      peers <- storage.getResponsivePeers
-        .map(_.filter(_.state === Ready))
-        .flatMap(getPeerSublist)
-        .flatMap { peerSublist =>
-          MonadThrow[F].fromOption(peerSublist.toNel, NoPeersToSelect)
-        }
+      peers <- getPeerSublist.flatMap { peerSublist =>
+        MonadThrow[F].fromOption(peerSublist.toNel, NoPeersToSelect)
+      }
       peerOrdinals <- peers.parTraverseN(maxConcurrentPeerInquiries) { peer =>
         snapshotClient.getLatestOrdinal(peer).map((peer, _))
       }
@@ -94,13 +94,19 @@ object MajorityPeerSelect {
         selectedPeer
       )
 
-    def getPeerSublist(peers: Set[Peer]): F[List[Peer]] = {
-      val sampleSize = (peers.size * peerSampleRatio).toInt
-
-      Random[F]
-        .shuffleList(peers.toList)
-        .map(_.take(Math.max(sampleSize, minSampleSize)))
-    }
+    private def getPeerSublist: F[List[Peer]] =
+      for {
+        trustScores <- getTrustScores.map(_.scores)
+        readyPeers <- storage.getResponsivePeers
+          .map(_.filter(_.state === Ready))
+        candidates = readyPeers.map { peer =>
+          peer -> trustScores.getOrElse(peer.id, Double.MinValue)
+        }.filterNot { case (_, score) => score === Double.MinValue }.toMap
+        sampleSize = refineV[Positive](Math.max((candidates.size * peerSampleRatio).toInt, minSampleSize))
+        selectedCandidates <- sampleSize.map { samples =>
+          WeightedSublistSelect.make.getSublist(candidates, samples)
+        }.toOption.flatSequence
+      } yield selectedCandidates.getOrElse(List.empty[Peer])
 
     def getSnapshotHashByPeer(peer: Peer, ordinal: SnapshotOrdinal): F[Option[(Peer, Hash)]] =
       snapshotClient.getHash(ordinal).run(peer).map(_.map((peer, _)))

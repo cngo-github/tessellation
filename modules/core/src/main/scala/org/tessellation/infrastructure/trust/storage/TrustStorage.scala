@@ -81,7 +81,7 @@ object TrustStorage {
         .map(_.trust.view.mapValues(_.predictedTrust))
         .map(_.collect { case (k, Some(v)) => (k, v) }.toMap)
 
-      def getBiasedTrustScores: F[Map[PeerId, Double]] = getTrust
+      def getBiasedTrustScores: F[TrustScores] = getTrust
         .map(getBiasedTrust(_).trust)
         .map(_.view.mapValues { trustInfo =>
           trustInfo.predictedTrust match {
@@ -91,6 +91,7 @@ object TrustStorage {
         }.toMap)
         .map(_.collect { case (peerId, trustScore) => peerId -> trustScore })
         .map(_.collect { case (peerId, Some(trustScore)) => peerId -> trustScore })
+        .map(trustScores => TrustScores(trustScores))
 
       def updateTrustWithBiases(selfPeerId: PeerId): F[Unit] =
         trustStoreRef.update { store =>

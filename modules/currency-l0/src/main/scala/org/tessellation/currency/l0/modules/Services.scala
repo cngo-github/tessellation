@@ -81,6 +81,8 @@ object Services {
         maybeDataApplication
       )
 
+      getCurrentTrust = p2PClient.l0Trust.getCurrentTrust.run(cfg.globalL0Peer)
+      proposalSelect = ProposalSelect.make(getCurrentTrust)
       consensus <- CurrencySnapshotConsensus
         .make[F](
           sdkServices.gossip,
@@ -97,7 +99,9 @@ object Services {
           stateChannelSnapshotService,
           maybeDataApplication,
           creator,
-          validator
+          validator,
+          proposalSelect,
+          cfg.environment
         )
       addressService = AddressService.make[F, CurrencyIncrementalSnapshot, CurrencySnapshotInfo](storages.snapshot)
       collateralService = Collateral.make[F](cfg.collateral, storages.snapshot)

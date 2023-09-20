@@ -11,6 +11,7 @@ import cats.{Eq, Order, Show}
 
 import scala.reflect.runtime.universe.TypeTag
 
+import org.tessellation.cli.AppEnvironment
 import org.tessellation.kryo.KryoSerializer
 import org.tessellation.schema.peer.PeerId
 import org.tessellation.sdk.config.types.ConsensusConfig
@@ -20,6 +21,7 @@ import org.tessellation.sdk.domain.consensus.ConsensusFunctions
 import org.tessellation.sdk.domain.gossip.Gossip
 import org.tessellation.sdk.domain.node.NodeStorage
 import org.tessellation.sdk.domain.seedlist.SeedlistEntry
+import org.tessellation.sdk.domain.snapshot.ProposalSelect
 import org.tessellation.sdk.infrastructure.gossip.RumorHandler
 import org.tessellation.sdk.infrastructure.metrics.Metrics
 import org.tessellation.security.SecurityProvider
@@ -45,7 +47,9 @@ object Consensus {
     clusterStorage: ClusterStorage[F],
     nodeStorage: NodeStorage[F],
     client: Client[F],
-    session: Session[F]
+    session: Session[F],
+    proposalSelect: ProposalSelect[F],
+    appEnvironment: AppEnvironment
   ): F[Consensus[F, Event, Key, Artifact, Context]] =
     for {
       storage <- ConsensusStorage.make[F, Event, Key, Artifact, Context](consensusConfig)
@@ -53,7 +57,9 @@ object Consensus {
         consensusFns,
         storage,
         gossip,
-        keyPair
+        keyPair,
+        proposalSelect,
+        appEnvironment
       )
       stateCreator = ConsensusStateCreator.make[F, Event, Key, Artifact, Context](
         consensusFns,

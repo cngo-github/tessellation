@@ -29,6 +29,7 @@ import org.tessellation.sdk.domain.snapshot.services.AddressService
 import org.tessellation.sdk.infrastructure.Collateral
 import org.tessellation.sdk.infrastructure.consensus.Consensus
 import org.tessellation.sdk.infrastructure.metrics.Metrics
+import org.tessellation.sdk.infrastructure.snapshot.ProposalSelect
 import org.tessellation.sdk.infrastructure.snapshot.services.AddressService
 import org.tessellation.sdk.modules.{SdkServices, SdkValidators}
 import org.tessellation.security.SecurityProvider
@@ -60,6 +61,8 @@ object Services {
         )
         .pure[F]
 
+      getCurrentTrust = storages.trust.getBiasedTrustScores
+      proposalSelect = ProposalSelect.make(getCurrentTrust)
       consensus <- GlobalSnapshotConsensus
         .make[F](
           sdkServices.gossip,
@@ -79,7 +82,9 @@ object Services {
           stateChannelAllowanceLists,
           client,
           session,
-          rewards
+          rewards,
+          proposalSelect,
+          cfg.environment
         )
       addressService = AddressService.make[F, GlobalIncrementalSnapshot, GlobalSnapshotInfo](storages.globalSnapshot)
       collateralService = Collateral.make[F](cfg.collateral, storages.globalSnapshot)

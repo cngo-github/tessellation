@@ -90,6 +90,8 @@ trait CliMethod {
     )
   )
 
+  val proposalSelectConfig = ProposalSelect(trustMultiplier = 5)
+
   lazy val sdkConfig: SdkConfig = SdkConfig(
     environment,
     gossipConfig,
@@ -98,7 +100,8 @@ trait CliMethod {
     stateAfterJoining,
     collateralConfig(environment, collateralAmount),
     trustStorageConfig,
-    PriorityPeerIds.get(environment)
+    PriorityPeerIds.get(environment),
+    proposalSelectConfig
   )
 
 }

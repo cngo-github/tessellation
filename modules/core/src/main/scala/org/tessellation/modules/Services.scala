@@ -1,14 +1,12 @@
 package org.tessellation.modules
 
 import java.security.KeyPair
-
 import cats.data.NonEmptySet
 import cats.effect.kernel.Async
 import cats.effect.std.{Random, Supervisor}
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-
 import org.tessellation.config.types.AppConfig
 import org.tessellation.domain.cell.L0Cell
 import org.tessellation.domain.statechannel.StateChannelService
@@ -33,9 +31,10 @@ import org.tessellation.sdk.infrastructure.snapshot.ProposalSelect
 import org.tessellation.sdk.infrastructure.snapshot.services.AddressService
 import org.tessellation.sdk.modules.{SdkServices, SdkValidators}
 import org.tessellation.security.SecurityProvider
-
 import eu.timepit.refined.auto._
 import org.http4s.client.Client
+import org.tessellation.sdk.config.types.SdkConfig
+import cats.syntax.option._
 
 object Services {
 
@@ -61,8 +60,7 @@ object Services {
         )
         .pure[F]
 
-      getCurrentTrust = storages.trust.getBiasedTrustScores
-      proposalSelect = ProposalSelect.make(getCurrentTrust)
+      proposalSelect = ProposalSelect.make(storages.trust.some, cfg.proposalSelect)
       consensus <- GlobalSnapshotConsensus
         .make[F](
           sdkServices.gossip,

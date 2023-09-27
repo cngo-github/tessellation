@@ -35,6 +35,7 @@ import org.tessellation.security.SecurityProvider
 import org.tessellation.security.signature.SignedValidator
 
 import org.http4s.client.Client
+import cats.syntax.option._
 
 object Services {
 
@@ -81,8 +82,7 @@ object Services {
         maybeDataApplication
       )
 
-      getCurrentTrust = p2PClient.l0Trust.getCurrentTrust.run(cfg.globalL0Peer)
-      proposalSelect = ProposalSelect.make(getCurrentTrust)
+      proposalSelect = ProposalSelect.make(none, cfg.proposalSelect)
       consensus <- CurrencySnapshotConsensus
         .make[F](
           sdkServices.gossip,

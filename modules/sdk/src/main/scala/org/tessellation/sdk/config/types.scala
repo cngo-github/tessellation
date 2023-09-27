@@ -3,14 +3,12 @@ package org.tessellation.sdk.config
 import cats.data.NonEmptySet
 
 import scala.concurrent.duration.FiniteDuration
-
 import org.tessellation.cli.AppEnvironment
 import org.tessellation.schema.balance.Amount
 import org.tessellation.schema.node.NodeState
 import org.tessellation.schema.peer.PeerId
-
 import com.comcast.ip4s.{Host, Port}
-import eu.timepit.refined.types.numeric.{NonNegLong, PosInt, PosLong}
+import eu.timepit.refined.types.numeric.{NonNegLong, PosDouble, PosInt, PosLong}
 import fs2.io.file.Path
 
 object types {
@@ -47,6 +45,8 @@ object types {
     storage: RumorStorageConfig,
     daemon: GossipDaemonConfig
   )
+
+  case class ProposalSelectConfig(trustMultiplier: PosDouble)
 
   case class ConsensusConfig(
     timeTriggerInterval: FiniteDuration,

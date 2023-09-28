@@ -8,6 +8,6 @@ import eu.timepit.refined.types.numeric.PosDouble
 
 trait ProposalSelect[F[_]] {
 
-  def score(declarations: Map[PeerId, PeerDeclarations]): F[Either[Throwable, List[(Hash, PosDouble)]]]
+  def score(declarations: Map[PeerId, PeerDeclarations]): F[List[(Hash, PosDouble)]]
 
 }

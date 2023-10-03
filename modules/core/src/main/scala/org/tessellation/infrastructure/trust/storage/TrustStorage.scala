@@ -94,7 +94,7 @@ object TrustStorage {
         .map(_.collect { case (peerId, Some(trustScore)) => peerId -> trustScore })
         .map(TrustScores(_))
 
-      def getBiasedSeedlistOrdinalPeerLabels: F[Option[Map[PeerId, Double]]] = getCurrentOrdinalTrust.map { ordinalTrustMap =>
+      def getBiasedSeedlistOrdinalPeerLabels: F[TrustLabels] = getCurrentOrdinalTrust.map { ordinalTrustMap =>
         seedlistScores.map { scores =>
           val publicTrusts = ordinalTrustMap.peerLabels.value.flatMap {
             case (peerId, trust) =>
@@ -113,6 +113,8 @@ object TrustStorage {
             .toMap
         }
       }
+        .map(_.getOrElse(Map.empty[PeerId, Double]))
+        .map(TrustLabels(_))
 
       def updateTrustWithBiases(selfPeerId: PeerId): F[Unit] =
         trustStoreRef.update { store =>

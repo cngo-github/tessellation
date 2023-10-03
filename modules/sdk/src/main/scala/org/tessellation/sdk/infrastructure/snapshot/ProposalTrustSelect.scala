@@ -5,10 +5,9 @@ import cats.syntax.functor._
 import cats.syntax.option._
 
 import org.tessellation.schema.peer.PeerId
-import org.tessellation.schema.trust.defaultPeerTrustScore
+import org.tessellation.schema.trust.{TrustLabels, TrustScores, defaultPeerTrustScore}
 import org.tessellation.sdk.config.types.ProposalSelectConfig
 import org.tessellation.sdk.domain.snapshot.ProposalSelect
-import org.tessellation.sdk.domain.trust.storage.TrustMap
 import org.tessellation.sdk.infrastructure.consensus.PeerDeclarations
 import org.tessellation.security.hash.Hash
 
@@ -19,19 +18,18 @@ import eu.timepit.refined.numeric.Positive
 object ProposalTrustSelect {
 
   def make[F[_]: MonadThrow](
-    getTrusts: F[(Option[Map[PeerId, Double]], TrustMap)],
+    getTrusts: F[(TrustLabels, TrustScores)],
     config: ProposalSelectConfig
   ): ProposalSelect[F] = (declarations: Map[PeerId, PeerDeclarations]) =>
     for {
       (d, r) <- getTrusts
-      deterministic = d
-        .map(_.filter { case (peerId, s) => s > 0 && declarations.contains(peerId) })
-        .getOrElse(Map.empty)
+      deterministic = d.value.filter {
+        case (peerId, s) => s > 0 && declarations.contains(peerId)
+      }
 
-      relative = r.trust.view
-        .mapValues(_.predictedTrust)
-        .collect { case (peerId, Some(s)) if s > 0 && declarations.contains(peerId) => peerId -> s }
-        .toMap
+      relative = r.value.collect {
+        case (peerId, s) if s > 0.0 && declarations.contains(peerId) => peerId -> s
+      }
 
       scoredHashes = declarations
         .foldLeft(Map.empty[Hash, Double]) {

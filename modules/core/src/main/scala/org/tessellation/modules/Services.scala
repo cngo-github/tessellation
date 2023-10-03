@@ -65,7 +65,10 @@ object Services {
         .pure[F]
 
       trustStorage = storages.trust
-      getTrusts = Applicative[F].product(trustStorage.getBiasedSeedlistOrdinalPeerLabels, trustStorage.getTrust)
+      getTrusts = Applicative[F].product(
+        trustStorage.getBiasedSeedlistOrdinalPeerLabels,
+        trustStorage.getBiasedTrustScores
+      )
       proposalSelect =
         if (cfg.environment === Dev)
           ProposalOccurrenceSelect.make()

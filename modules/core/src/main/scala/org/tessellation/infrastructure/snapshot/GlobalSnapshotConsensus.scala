@@ -80,7 +80,8 @@ object GlobalSnapshotConsensus {
           globalSnapshotStorage,
           snapshotAcceptanceManager,
           collateral,
-          rewards
+          rewards,
+          gossip
         ),
         gossip,
         selfId,

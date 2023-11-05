@@ -127,4 +127,8 @@ object types {
     maxSize: PosInt
   )
 
+  case class DoubleSignDetectConfig(
+    minDistance: PosInt
+  )
+
 }

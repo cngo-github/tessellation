@@ -12,7 +12,9 @@ import org.tessellation.sdk.domain.security.DoubleSignDetect
 import org.tessellation.security.hash.Hash
 
 import eu.timepit.refined.auto._
-
+import cats.syntax.functor._
+import cats.syntax.either._
+import cats.syntax.flatMap._
 object DoubleSignDetect {
 
   def make[F[_]: Monad](
@@ -42,8 +44,31 @@ object DoubleSignDetect {
 
       possibleDoubleSigns.nonEmpty
     }
+      /*
+      We want to make sure that we are only dealing with unique hashes and that the unique hashes
+      have a receipt time difference less than or equal to a threshold.
+       */
+      val g: Map[Hash, Iterable[Int]] = data.groupMap { case (hash, _) => hash } { case (_, i) => i }.filter {
+        case (_, idxs) => idxs.size > 1
+      }
 
-    def detect(peerId: PeerId, forkMap: ForkInfoMap): Option[SnapshotOrdinal] = {
+      val possibleDoubleSigns: MapView[Hash, Boolean] = g.view
+        .mapValues(
+          _.toSeq.sorted
+            .foldLeft((false, 0)) {
+              case ((accState, lastIdx), currIdx) =>
+                val isDoubleSign = currIdx - lastIdx <= config.minDistance
+
+                (accState && isDoubleSign, currIdx)
+            }
+            ._1
+        )
+        .filter { case (_, isDoubleSign) => isDoubleSign }
+
+      possibleDoubleSigns.nonEmpty
+    }
+
+    def detect2(peerId: PeerId, forkMap: ForkInfoMap): Option[SnapshotOrdinal] = {
       /*
       Intent:
       A double signing occurs when you you repeatedly have ForkInfos at the same ordinal, but
@@ -73,6 +98,40 @@ object DoubleSignDetect {
 
       filtered.headOption.map { case (ordinal, _) => ordinal }
     }
-  }
+    case class IndexedForkInfo(info: ForkInfo, idx: Int)
+
+    def hasDoubleSign(hashMap: Map[Hash, Iterable[IndexedForkInfo]]): Boolean =
+      hashMap.exists { case (_, infos) => hasDoubleSign(infos) }
+
+    def hasDoubleSign(infos: Iterable[IndexedForkInfo]): Boolean =
+      infos
+        .toList
+        .sortBy(_.idx)
+        .tailRecM {
+          case Nil | head :: Nil => false.asRight
+          case a :: b :: _ if b.idx - a.idx <= config.minDistance => true.asRight
+          case _ :: tail => tail.asLeft
+        }
+
+
+    def detect(peerId: PeerId, forkMap: ForkInfoMap): Option[PeerId] = {
+      forkMap
+        .forks
+        .get(peerId)
+        .flatMap { entries =>
+          val byOrdinalAndHash: Iterable[Map[Hash, Iterable[IndexedForkInfo]]] =
+            entries
+              .getEntries
+              .zipWithIndex
+              .map { case (info, idx) => IndexedForkInfo(info, idx) }
+              .groupBy(_.info.ordinal)
+              .values
+              .map(_.groupBy(_.info.hash))
+
+          byOrdinalAndHash
+            .find(hasDoubleSign)
+            .as(peerId)
+        }
+    }
 
 }

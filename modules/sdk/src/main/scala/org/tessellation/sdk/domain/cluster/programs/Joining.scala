@@ -239,7 +239,7 @@ sealed abstract class Joining[F[_]: Async: GenUUID: SecurityProvider: KryoSerial
           localHealthcheck.cancel(registrationRequest.id),
           PeerAlreadyJoinedWithDifferentRegistrationData(registrationRequest.id).raiseError[F, Unit]
         )
-      _ <- nodeStorage.tryModifyStateGetResult(NodeState.SessionStarted, stateAfterJoining)
+      // _ <- nodeStorage.tryModifyStateGetResult(NodeState.SessionStarted, stateAfterJoining)
     } yield peer
 
   private def validateSeedlist(peer: PeerToJoin): F[Unit] =

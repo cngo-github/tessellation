@@ -29,16 +29,18 @@ object PeerDiscoveryDelayProgram {
     clusterStorage: ClusterStorage[F],
     nodeStorage: NodeStorage[F],
     stateAfterJoining: NodeState,
+    stateDiscoveringPeers: NodeState,
     environment: AppEnvironment
   ): F[PeerDiscoveryDelay[F]] =
     Ref[F]
       .of[RoundInfo](RoundInfo(0, 0, 0))
-      .map(make(clusterStorage, nodeStorage, stateAfterJoining, environment, _))
+      .map(make(clusterStorage, nodeStorage, stateAfterJoining, stateDiscoveringPeers, environment, _))
 
   def make[F[_]: Monad](
     clusterStorage: ClusterStorage[F],
     nodeStorage: NodeStorage[F],
     stateAfterJoining: NodeState,
+    stateDiscoveringPeers: NodeState,
     environment: AppEnvironment,
     roundsRef: Ref[F, RoundInfo]
   ): PeerDiscoveryDelay[F] =
@@ -59,11 +61,17 @@ object PeerDiscoveryDelayProgram {
           rounds >= maxRounds
       } yield proceed
 
-      def run: F[Boolean] = for {
-        _ <- update
-        proceed <- canProceed
-        _ <- nodeStorage.tryModifyState(SessionStarted, stateAfterJoining).whenA(proceed)
-      } yield proceed
+      def run: F[Boolean] =
+        for {
+          _ <- update
+          proceed <- canProceed
+          _ <- nodeStorage
+            .tryModifyStateGetResult(SessionStarted, stateDiscoveringPeers)
+            .whenA(proceed)
+          _ <- nodeStorage
+            .tryModifyStateGetResult(stateDiscoveringPeers, stateAfterJoining)
+            .unlessA(proceed)
+        } yield proceed
     }
 
   def run[F[_]: Async: Temporal](

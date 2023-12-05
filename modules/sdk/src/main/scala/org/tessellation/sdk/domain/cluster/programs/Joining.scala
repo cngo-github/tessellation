@@ -3,15 +3,16 @@ package org.tessellation.sdk.domain.cluster.programs
 import cats.Applicative
 import cats.effect.Async
 import cats.effect.std.Queue
-import cats.syntax.applicative._
-import cats.syntax.applicativeError._
-import cats.syntax.flatMap._
-import cats.syntax.functor._
-import cats.syntax.option._
-import cats.syntax.order._
-import cats.syntax.show._
-import cats.syntax.traverse._
-
+import org.tessellation.schema.node.NodeState.{ReadyToJoin, SessionStarted}
+//import cats.syntax.applicative._
+//import cats.syntax.applicativeError._
+//import cats.syntax.flatMap._
+//import cats.syntax.functor._
+//import cats.syntax.option._
+//import cats.syntax.order._
+//import cats.syntax.show._
+//import cats.syntax.traverse._
+import cats.syntax.all._
 import org.tessellation.cli.AppEnvironment
 import org.tessellation.cli.AppEnvironment.Dev
 import org.tessellation.ext.crypto._
@@ -31,9 +32,9 @@ import org.tessellation.sdk.http.p2p.clients.SignClient
 import org.tessellation.security.SecurityProvider
 import org.tessellation.security.hash.Hash
 import org.tessellation.security.signature.Signed
-
 import com.comcast.ip4s.{Host, IpLiteralSyntax}
 import fs2.{Pipe, Stream}
+import org.tessellation.schema.node.NodeState.WaitingForDownload
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 object Joining {
@@ -106,7 +107,8 @@ object Joining {
       selfId,
       stateAfterJoining,
       versionHash,
-      joiningQueue
+      joiningQueue,
+      peerDiscovery
     ) {}
 
     def join: Pipe[F, P2PContext, Unit] =
@@ -149,7 +151,8 @@ sealed abstract class Joining[F[_]: Async: GenUUID: SecurityProvider: KryoSerial
   selfId: PeerId,
   stateAfterJoining: NodeState,
   versionHash: Hash,
-  joiningQueue: Queue[F, P2PContext]
+  joiningQueue: Queue[F, P2PContext],
+  peerDiscovery: PeerDiscovery[F]
 ) {
 
   private val logger = Slf4jLogger.getLogger[F]
@@ -157,13 +160,41 @@ sealed abstract class Joining[F[_]: Async: GenUUID: SecurityProvider: KryoSerial
   def join(toPeer: PeerToJoin): F[Unit] =
     for {
       _ <- validateJoinConditions()
+      beforeDownload = nodeStorage.getNodeState.map(_ === ReadyToJoin)
       _ <- session.createSession
 
-      _ <- joiningQueue.offer(toPeer)
+      _ <- beforeDownload.ifM(initialJoining(toPeer), joiningQueue.offer(toPeer))
     } yield ()
 
   def rejoin(withPeer: PeerToJoin): F[Unit] =
     twoWayHandshake(withPeer, None, skipJoinRequest = true).void
+
+  def joinAndDiscover(toPeer: PeerToJoin): F[Set[P2PContext]] =
+    for {
+      _ <- twoWayHandshake(toPeer, none)
+      maybePeer <- clusterStorage
+        .getPeer(toPeer.id)
+      discoveredPeers <- maybePeer.fold(Set.empty[P2PContext].pure[F]) { p =>
+        peerDiscovery.discoverFrom(p).map(_.map(toP2PContext)).handleErrorWith { err =>
+          logger
+            .error(err)(s"Joining to peer ${maybePeer.map(_.show)} failed")
+            .as(Set.empty[P2PContext])
+        }
+      }
+    } yield discoveredPeers
+
+  private def initialJoining(toPeer: PeerToJoin) = {
+    val discoveredPeers = joinAndDiscover(toPeer)
+
+    discoveredPeers.flatMap { peers =>
+      peers.tailRecM {
+        case contexts if contexts.isEmpty => ().asRight[Set[P2PContext]].pure
+        case contexts =>
+          joinAndDiscover(contexts.head)
+            .map(update => (contexts.tail ++ update).asLeft[Unit])
+      }
+    }.flatMap(_ => nodeStorage.tryModifyState(SessionStarted, stateAfterJoining))
+  }
 
   private def validateJoinConditions(): F[Unit] =
     for {

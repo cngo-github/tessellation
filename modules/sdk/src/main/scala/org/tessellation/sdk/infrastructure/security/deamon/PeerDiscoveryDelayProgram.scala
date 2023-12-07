@@ -19,7 +19,7 @@ import org.tessellation.sdk.domain.cluster.storage.ClusterStorage
 import org.tessellation.sdk.domain.node.NodeStorage
 import org.tessellation.sdk.domain.security.PeerDiscoveryDelay
 
-object PeerDiscoveryDelayProgram {
+object SyncPeerDiscovery {
   val maxRounds = 10
   val minRepeatedRounds = 5
 
@@ -61,6 +61,11 @@ object PeerDiscoveryDelayProgram {
           rounds >= maxRounds
       } yield proceed
 
+      def discover =
+        // loop:
+        //    get peers from syncQueue
+      //      if NONE => stop recursion
+      //      else traverse(peers)(initializeJoining >>= syncQueue.add)
       def run: F[Boolean] =
         for {
           _ <- update

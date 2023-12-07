@@ -3,6 +3,7 @@ package org.tessellation.sdk.domain.cluster.programs
 import cats.Applicative
 import cats.effect.Async
 import cats.effect.std.Queue
+<<<<<<< Updated upstream
 import org.tessellation.schema.node.NodeState.{ReadyToJoin, SessionStarted}
 //import cats.syntax.applicative._
 //import cats.syntax.applicativeError._
@@ -12,7 +13,10 @@ import org.tessellation.schema.node.NodeState.{ReadyToJoin, SessionStarted}
 //import cats.syntax.order._
 //import cats.syntax.show._
 //import cats.syntax.traverse._
+=======
+>>>>>>> Stashed changes
 import cats.syntax.all._
+
 import org.tessellation.cli.AppEnvironment
 import org.tessellation.cli.AppEnvironment.Dev
 import org.tessellation.ext.crypto._
@@ -20,6 +24,7 @@ import org.tessellation.kryo.KryoSerializer
 import org.tessellation.schema.ID.Id
 import org.tessellation.schema.cluster._
 import org.tessellation.schema.node.NodeState
+import org.tessellation.schema.node.NodeState.ReadyToJoin
 import org.tessellation.schema.peer.Peer.toP2PContext
 import org.tessellation.schema.peer._
 import org.tessellation.sdk.domain.cluster.services.{Cluster, Session}
@@ -32,9 +37,9 @@ import org.tessellation.sdk.http.p2p.clients.SignClient
 import org.tessellation.security.SecurityProvider
 import org.tessellation.security.hash.Hash
 import org.tessellation.security.signature.Signed
+
 import com.comcast.ip4s.{Host, IpLiteralSyntax}
 import fs2.{Pipe, Stream}
-import org.tessellation.schema.node.NodeState.WaitingForDownload
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 object Joining {
@@ -138,6 +143,44 @@ object Joining {
   }
 }
 
+trait SyncPeerDiscoveryQueue[F[_]] {
+  def add(peer: PeerToJoin): F[Boolean]
+  def getAll: F[Set[PeerToJoin]]
+}
+
+object SyncPeerDiscoveryQueue {
+  import cats.effect.Ref
+  private case class Queue(isOpen: Boolean, peers: Set[PeerToJoin])
+  def make[F[_]: Async](): F[SyncPeerDiscoveryQueue[F]] =
+    Ref
+      .of[F, Queue](Queue(true, Set.empty))
+      .map { ref =>
+        new SyncPeerDiscoveryQueue[F] {
+          def add(peer: PeerToJoin): F[Boolean] =
+            ref.modify { current =>
+              if (current.isOpen)
+                (current.copy(peers = current.peers + peer), true)
+              else
+                (current, false)
+            }
+/*
+    get: NOT-STARTED => NOT-STARTED
+    get STARTED => if empty CLOSED ELSE STARTED
+    get  CLOSED => CLOSED
+
+     add:  NOT-STARTED => STARTED
+     add:  STARTED => STARTED
+     add:  CLOSED => CLOSED
+ */
+          def getAll: F[Set[PeerToJoin]] =
+            ref.modify { current =>
+              val peers = current.peers
+              (Queue(peers.nonEmpty, Set.empty), peers)
+            }
+        }
+      }
+}
+
 sealed abstract class Joining[F[_]: Async: GenUUID: SecurityProvider: KryoSerializer] private (
   environment: AppEnvironment,
   nodeStorage: NodeStorage[F],
@@ -152,7 +195,8 @@ sealed abstract class Joining[F[_]: Async: GenUUID: SecurityProvider: KryoSerial
   stateAfterJoining: NodeState,
   versionHash: Hash,
   joiningQueue: Queue[F, P2PContext],
-  peerDiscovery: PeerDiscovery[F]
+  peerDiscovery: PeerDiscovery[F],
+  syncQueue: SyncPeerDiscoveryQueue
 ) {
 
   private val logger = Slf4jLogger.getLogger[F]
@@ -160,10 +204,14 @@ sealed abstract class Joining[F[_]: Async: GenUUID: SecurityProvider: KryoSerial
   def join(toPeer: PeerToJoin): F[Unit] =
     for {
       _ <- validateJoinConditions()
+<<<<<<< Updated upstream
       beforeDownload = nodeStorage.getNodeState.map(_ === ReadyToJoin)
+=======
+//      beforeDownload = nodeStorage.getNodeState.map(_ =!= ReadyToJoin)
+>>>>>>> Stashed changes
       _ <- session.createSession
 
-      _ <- beforeDownload.ifM(initialJoining(toPeer), joiningQueue.offer(toPeer))
+      _ <- syncQueue.add(toPeer).ifM(().pure[F], joiningQueue.offer(toPeer))
     } yield ()
 
   def rejoin(withPeer: PeerToJoin): F[Unit] =

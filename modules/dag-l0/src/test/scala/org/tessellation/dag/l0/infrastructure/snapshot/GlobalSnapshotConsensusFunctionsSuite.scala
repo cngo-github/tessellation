@@ -22,7 +22,11 @@ import org.tessellation.node.shared.domain.rewards.Rewards
 import org.tessellation.node.shared.domain.snapshot.storage.SnapshotStorage
 import org.tessellation.node.shared.infrastructure.consensus.trigger.EventTrigger
 import org.tessellation.node.shared.infrastructure.metrics.Metrics
-import org.tessellation.node.shared.infrastructure.snapshot.{GlobalSnapshotAcceptanceManager, GlobalSnapshotStateChannelEventsProcessor}
+import org.tessellation.node.shared.infrastructure.snapshot.{
+  GlobalSnapshotAcceptanceManager,
+  GlobalSnapshotStateChannelEventsProcessor,
+  GossipForkInfo
+}
 import org.tessellation.node.shared.nodeSharedKryoRegistrar
 import org.tessellation.schema._
 import org.tessellation.schema.address.Address
@@ -79,7 +83,7 @@ object GlobalSnapshotConsensusFunctionsSuite extends MutableIOSuite with Checker
   val gss: SnapshotStorage[IO, GlobalIncrementalSnapshot, GlobalSnapshotInfo] =
     new SnapshotStorage[IO, GlobalIncrementalSnapshot, GlobalSnapshotInfo] {
 
-      override def prepend(snapshot: Signed[GlobalIncrementalSnapshot], state: GlobalSnapshotInfo): IO[Boolean] = ???
+      override def prepend(snapshot: Signed[GlobalIncrementalSnapshot], state: GlobalSnapshotInfo): IO[Boolean] = true.pure
 
       override def head: IO[Option[(Signed[GlobalIncrementalSnapshot], GlobalSnapshotInfo)]] = ???
 
@@ -154,7 +158,7 @@ object GlobalSnapshotConsensusFunctionsSuite extends MutableIOSuite with Checker
         snapshotAcceptanceManager,
         collateral,
         rewards,
-        gossip
+        GossipForkInfo.make(gossip)
       )
   }
 
@@ -242,7 +246,7 @@ object GlobalSnapshotConsensusFunctionsSuite extends MutableIOSuite with Checker
       gscf = mkGlobalSnapshotConsensusFunctions(mockGossip)
       (signedLastArtifact, _) <- mkSignedArtifacts()
 
-      _ <- gscf.gossipForkInfo(mockGossip, signedLastArtifact)
+      _ <- gscf.consumeSignedMajorityArtifact(signedLastArtifact, GlobalSnapshotInfo.empty)
 
       expected <- h
         .hash(signedLastArtifact)

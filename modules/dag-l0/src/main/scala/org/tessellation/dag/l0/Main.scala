@@ -8,14 +8,18 @@ import cats.syntax.semigroupk._
 import org.tessellation.BuildInfo
 import org.tessellation.dag.l0.cli.method._
 import org.tessellation.dag.l0.http.p2p.P2PClient
+import org.tessellation.dag.l0.infrastructure.snapshot.GlobalSnapshotArtifact
 import org.tessellation.dag.l0.infrastructure.trust.handler.{ordinalTrustHandler, trustHandler}
 import org.tessellation.dag.l0.modules._
 import org.tessellation.ext.cats.effect._
 import org.tessellation.ext.kryo._
+import org.tessellation.kryo.KryoSerializer
 import org.tessellation.node.shared.app.{NodeShared, TessellationIOApp}
 import org.tessellation.node.shared.domain.collateral.OwnCollateralNotSatisfied
+import org.tessellation.node.shared.domain.gossip.Gossip
 import org.tessellation.node.shared.infrastructure.genesis.{GenesisFS => GenesisLoader}
 import org.tessellation.node.shared.infrastructure.gossip.{GossipDaemon, RumorHandlers}
+import org.tessellation.node.shared.infrastructure.snapshot.GossipForkInfo
 import org.tessellation.node.shared.infrastructure.snapshot.storage.SnapshotLocalFileSystemStorage
 import org.tessellation.node.shared.resources.MkHttpServer
 import org.tessellation.node.shared.resources.MkHttpServer.ServerName
@@ -24,17 +28,31 @@ import org.tessellation.schema.node.NodeState
 import org.tessellation.schema.semver.TessellationVersion
 import org.tessellation.schema.{GlobalIncrementalSnapshot, GlobalSnapshot}
 import org.tessellation.security.signature.Signed
+import org.tessellation.security.{Hasher, SecurityProvider}
 
 import com.monovore.decline.Opts
 import eu.timepit.refined.auto._
 
-object Main
+object Main extends DagL0Application {
+
+  override def mkGossipForkInfo(
+    gossip: Gossip[IO]
+  )(implicit SP: SecurityProvider[IO], K: KryoSerializer[IO], H: Hasher[IO]): GossipForkInfo[IO, GlobalSnapshotArtifact] =
+    GossipForkInfo.make[IO, GlobalSnapshotArtifact](gossip)
+
+}
+
+abstract class DagL0Application
     extends TessellationIOApp[Run](
       name = "dag-l0",
       header = "Tessellation Node",
       version = TessellationVersion.unsafeFrom(BuildInfo.version),
       clusterId = ClusterId("6d7f1d6a-213a-4148-9d45-d7200f555ecf")
     ) {
+
+  def mkGossipForkInfo(
+    gossip: Gossip[IO]
+  )(implicit SP: SecurityProvider[IO], K: KryoSerializer[IO], H: Hasher[IO]): GossipForkInfo[IO, GlobalSnapshotArtifact]
 
   val opts: Opts[Run] = cli.method.opts
 
@@ -73,7 +91,8 @@ object Main
           method.stateChannelAllowanceLists,
           nodeShared.nodeId,
           keyPair,
-          cfg
+          cfg,
+          mkGossipForkInfo(sharedServices.gossip)
         )
         .asResource
       programs = Programs.make[IO](

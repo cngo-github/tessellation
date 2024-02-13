@@ -14,13 +14,10 @@ import scala.collection.immutable.{SortedMap, SortedSet}
 import scala.util.control.NoStackTrace
 
 import org.tessellation.ext.cats.syntax.next._
-import org.tessellation.ext.crypto._
 import org.tessellation.kryo.KryoSerializer
 import org.tessellation.node.shared.domain.block.processing.{BlockAcceptanceResult, deprecationThreshold}
 import org.tessellation.node.shared.domain.consensus.ConsensusFunctions
 import org.tessellation.node.shared.domain.consensus.ConsensusFunctions.InvalidArtifact
-import org.tessellation.node.shared.domain.fork.ForkInfo
-import org.tessellation.node.shared.domain.gossip.Gossip
 import org.tessellation.node.shared.infrastructure.consensus.trigger.ConsensusTrigger
 import org.tessellation.schema._
 import org.tessellation.schema.address.Address
@@ -48,9 +45,6 @@ abstract class SnapshotConsensusFunctions[
   Trigger <: ConsensusTrigger
 ](implicit ordering: Ordering[BlockAsActiveTip])
     extends ConsensusFunctions[F, Event, SnapshotOrdinal, Artifact, Context] {
-
-  def gossipForkInfo(gossip: Gossip[F], signed: Signed[Artifact]): F[Unit] =
-    signed.hash.flatMap(h => gossip.spread(ForkInfo(signed.value.ordinal, h)))
 
   def getRequiredCollateral: Amount
 

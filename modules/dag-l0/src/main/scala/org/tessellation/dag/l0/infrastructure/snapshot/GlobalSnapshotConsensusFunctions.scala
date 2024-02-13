@@ -16,7 +16,6 @@ import org.tessellation.ext.crypto._
 import org.tessellation.kryo.KryoSerializer
 import org.tessellation.node.shared.domain.block.processing._
 import org.tessellation.node.shared.domain.consensus.ConsensusFunctions.InvalidArtifact
-import org.tessellation.node.shared.domain.gossip.Gossip
 import org.tessellation.node.shared.domain.rewards.Rewards
 import org.tessellation.node.shared.domain.snapshot.storage.SnapshotStorage
 import org.tessellation.node.shared.infrastructure.consensus.trigger.{ConsensusTrigger, EventTrigger, TimeTrigger}
@@ -49,7 +48,7 @@ object GlobalSnapshotConsensusFunctions {
     globalSnapshotAcceptanceManager: GlobalSnapshotAcceptanceManager[F],
     collateral: Amount,
     rewards: Rewards[F, GlobalSnapshotStateProof, GlobalIncrementalSnapshot, GlobalSnapshotEvent],
-    gossip: Gossip[F]
+    gossipForkInfo: GossipForkInfo[F, GlobalSnapshotArtifact]
   ): GlobalSnapshotConsensusFunctions[F] = new GlobalSnapshotConsensusFunctions[F] {
 
     private val logger = Slf4jLogger.getLoggerFromClass(GlobalSnapshotConsensusFunctions.getClass)
@@ -65,7 +64,7 @@ object GlobalSnapshotConsensusFunctions {
           metrics.globalSnapshot(signedArtifact),
           logger.error("Cannot save GlobalSnapshot into the storage")
         ) >>
-        gossipForkInfo(gossip, signedArtifact)
+        gossipForkInfo.gossip(signedArtifact)
 
     override def validateArtifact(
       lastSignedArtifact: Signed[GlobalSnapshotArtifact],

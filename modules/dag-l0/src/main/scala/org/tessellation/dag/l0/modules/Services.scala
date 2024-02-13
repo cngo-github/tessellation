@@ -15,6 +15,7 @@ import org.tessellation.dag.l0.domain.statechannel.StateChannelService
 import org.tessellation.dag.l0.infrastructure.rewards._
 import org.tessellation.dag.l0.infrastructure.snapshot._
 import org.tessellation.dag.l0.infrastructure.trust.TrustStorageUpdater
+import org.tessellation.json.JsonBrotliBinarySerializer
 import org.tessellation.kryo.KryoSerializer
 import org.tessellation.node.shared.domain.cluster.services.{Cluster, Session}
 import org.tessellation.node.shared.domain.collateral.Collateral
@@ -24,9 +25,11 @@ import org.tessellation.node.shared.domain.rewards.Rewards
 import org.tessellation.node.shared.domain.seedlist.SeedlistEntry
 import org.tessellation.node.shared.domain.snapshot.DoubleSignDetect
 import org.tessellation.node.shared.domain.snapshot.services.AddressService
+import org.tessellation.node.shared.infrastructure.block.processing.BlockAcceptanceManager
 import org.tessellation.node.shared.infrastructure.collateral.Collateral
 import org.tessellation.node.shared.infrastructure.consensus.Consensus
 import org.tessellation.node.shared.infrastructure.metrics.Metrics
+import org.tessellation.node.shared.infrastructure.snapshot._
 import org.tessellation.node.shared.infrastructure.snapshot.services.AddressService
 import org.tessellation.node.shared.modules.{SharedServices, SharedValidators}
 import org.tessellation.schema.address.Address
@@ -49,7 +52,8 @@ object Services {
     stateChannelAllowanceLists: Option[Map[Address, NonEmptySet[PeerId]]],
     selfId: PeerId,
     keyPair: KeyPair,
-    cfg: AppConfig
+    cfg: AppConfig,
+    gossipForkInfo: GossipForkInfo[F, GlobalSnapshotArtifact]
   ): F[Services[F]] =
     for {
       rewards <- Rewards
@@ -60,25 +64,44 @@ object Services {
         )
         .pure[F]
 
+      globalSnapshotStateChannelManager <- GlobalSnapshotStateChannelAcceptanceManager.make[F](
+        stateChannelAllowanceLists,
+        pullDelay = cfg.stateChannelPullDelay,
+        purgeDelay = cfg.stateChannelPurgeDelay
+      )
+      jsonBrotliBinarySerializer <- JsonBrotliBinarySerializer.forSync
+      snapshotAcceptanceManager = GlobalSnapshotAcceptanceManager.make(
+        BlockAcceptanceManager.make[F](validators.blockValidator),
+        GlobalSnapshotStateChannelEventsProcessor
+          .make[F](
+            validators.stateChannelValidator,
+            globalSnapshotStateChannelManager,
+            sharedServices.currencySnapshotContextFns,
+            jsonBrotliBinarySerializer
+          ),
+        cfg.collateral.amount
+      )
+
+      consensusFunctions = GlobalSnapshotConsensusFunctions.make(
+        storages.globalSnapshot,
+        snapshotAcceptanceManager,
+        cfg.collateral.amount,
+        rewards,
+        gossipForkInfo
+      )
+
       consensus <- GlobalSnapshotConsensus
         .make[F](
           sharedServices.gossip,
           selfId,
           keyPair,
           seedlist,
-          cfg.collateral.amount,
           storages.cluster,
           storages.node,
-          storages.globalSnapshot,
-          validators,
-          sharedServices,
           cfg.snapshot,
-          stateChannelPullDelay = cfg.stateChannelPullDelay,
-          stateChannelPurgeDelay = cfg.stateChannelPurgeDelay,
-          stateChannelAllowanceLists,
           client,
           session,
-          rewards
+          consensusFunctions
         )
       addressService = AddressService.make[F, GlobalIncrementalSnapshot, GlobalSnapshotInfo](storages.globalSnapshot)
       collateralService = Collateral.make[F](cfg.collateral, storages.globalSnapshot)

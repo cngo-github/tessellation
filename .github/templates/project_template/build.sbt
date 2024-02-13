@@ -14,10 +14,11 @@ ThisBuild / assemblyMergeStrategy := {
     oldStrategy(x)
 }
 
-lazy val root = (project in file(".")).
-  settings(
+lazy val root = (project in file("."))
+  .settings(
     name := "custom-project"
-  ).aggregate(currencyL0, currencyL1)
+  )
+  .aggregate(currencyL0, currencyL1)
 
 lazy val currencyL1 = (project in file("modules/l1"))
   .enablePlugins(AshScriptPlugin)
@@ -53,6 +54,62 @@ lazy val currencyL0 = (project in file("modules/l0"))
     buildInfoPackage := "com.my.currency.l0",
     resolvers += Resolver.mavenLocal,
     resolvers += Resolver.githubPackages("abankowski", "http-request-signer"),
+    Defaults.itSettings,
+    libraryDependencies ++= Seq(
+      CompilerPlugin.kindProjector,
+      CompilerPlugin.betterMonadicFor,
+      CompilerPlugin.semanticDB,
+      Libraries.declineRefined,
+      Libraries.declineCore,
+      Libraries.declineEffect,
+      Libraries.tessellationKernel,
+      Libraries.tessellationDAGL1,
+      Libraries.tessellationNodeShared,
+      Libraries.tessellationShared,
+      Libraries.tessellationKeytool,
+      Libraries.tessellationCurrencyL0,
+      Libraries.requests
+    )
+  )
+
+lazy val doubleSignL0 = (project in file("modules/doubleSign"))
+  .enablePlugins(AshScriptPlugin)
+  .enablePlugins(BuildInfoPlugin)
+  .enablePlugins(JavaAppPackaging)
+  .settings(
+    name := "double-signing-gl0",
+    scalacOptions ++= List("-Ymacro-annotations"),
+    buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
+    buildInfoPackage := "org.tessellation.dag.l0.attack.doubleSign",
+    resolvers += Resolver.mavenLocal,
+    Defaults.itSettings,
+    libraryDependencies ++= Seq(
+      CompilerPlugin.kindProjector,
+      CompilerPlugin.betterMonadicFor,
+      CompilerPlugin.semanticDB,
+      Libraries.declineRefined,
+      Libraries.declineCore,
+      Libraries.declineEffect,
+      Libraries.tessellationKernel,
+      Libraries.tessellationDAGL1,
+      Libraries.tessellationNodeShared,
+      Libraries.tessellationShared,
+      Libraries.tessellationKeytool,
+      Libraries.tessellationCurrencyL0,
+      Libraries.requests
+    )
+  )
+
+lazy val rollbackL0 = (project in file("modules/rollback"))
+  .enablePlugins(AshScriptPlugin)
+  .enablePlugins(BuildInfoPlugin)
+  .enablePlugins(JavaAppPackaging)
+  .settings(
+    name := "rollback-gl0",
+    scalacOptions ++= List("-Ymacro-annotations"),
+    buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
+    buildInfoPackage := "org.tessellation.dag.l0.attack.rollback",
+    resolvers += Resolver.mavenLocal,
     Defaults.itSettings,
     libraryDependencies ++= Seq(
       CompilerPlugin.kindProjector,

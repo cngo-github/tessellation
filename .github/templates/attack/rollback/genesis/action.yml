@@ -1,4 +1,4 @@
-name: Rollback Global L0 Genesis
+name: Double Signing Global L0 Genesis
 
 inputs:
   CL_PUBLIC_HTTP_PORT:
@@ -7,6 +7,8 @@ inputs:
     required: true
   CL_CLI_HTTP_PORT:
     required: true
+  RUN_ROLLBACK:
+    required: false
 
 runs:
   using: "composite"
@@ -20,21 +22,33 @@ runs:
         mkdir rollback-l0
         mkdir -p jars
 
-    - name: Copy genesis to Rollback L0
+    - name: Copy genesis to Double Signing L0
       shell: bash
       run: |
         cd .github/config
         mkdir containers/rollback-l0/genesis
         cp genesis.csv containers/rollback-l0/genesis
 
-    - name: Generate Rollback L0 JAR
+    - name: Generate Keytool & Wallet JAR
       shell: bash
       run: |
-        sbt rollbackL0/assembly keytool/assembly wallet/assembly
+        sbt keytool/assembly wallet/assembly
         
-        mv modules/dag-l0/target/scala-2.13/tessellation-dag-l0-assembly-* .github/config/containers/jars/rollback-l0.jar
         mv modules/keytool/target/scala-2.13/tessellation-keytool-assembly-* .github/config/containers/jars/cl-keytool.jar
         mv modules/wallet/target/scala-2.13/tessellation-wallet-assembly-* .github/config/containers/jars/cl-wallet.jar
+
+    - name: Generate Double Signing L0 JAR
+      shell: bash
+      run: |
+        cd .github/templates/project_template/
+
+        if [[ "${{inputs.RUN_ROLLBACK}}" != "" ]]; then
+          echo "Testing rollback logic"
+          cp ../../assets/rollback_attack.txt  modules/dag/l0/src/main/scala/org/tessellation/dag/l0/attack/doubleSign/Main.scala
+        fi
+        
+        sbt doubleSignL0/assembly
+        mv modules/doubleSign/target/scala-2.13/double-signing-gl0-assembly-* ../../config/containers/jars/doubleSign-l0.jar
 
     - name: Running rollback-l0
       shell: bash

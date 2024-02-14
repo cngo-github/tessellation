@@ -5,12 +5,11 @@ import cats.effect.Async
 import cats.syntax.all._
 
 import org.tessellation.ext.crypto._
-import org.tessellation.kryo.KryoSerializer
 import org.tessellation.node.shared.domain.fork.ForkInfo
 import org.tessellation.node.shared.domain.gossip.Gossip
 import org.tessellation.schema.snapshot.Snapshot
+import org.tessellation.security.Hasher
 import org.tessellation.security.signature.Signed
-import org.tessellation.security.{Hasher, SecurityProvider}
 
 import io.circe.Encoder
 
@@ -19,7 +18,7 @@ trait GossipForkInfo[F[_], Artifact <: Snapshot] {
 }
 
 object GossipForkInfo {
-  def make[F[_]: Async: SecurityProvider: KryoSerializer: Hasher, Artifact <: Snapshot: Eq: Encoder](
+  def make[F[_]: Async: Hasher, Artifact <: Snapshot: Eq: Encoder](
     gossip: Gossip[F]
   ): GossipForkInfo[F, Artifact] =
     (signed: Signed[Artifact]) => signed.hash.flatMap(h => gossip.spread(ForkInfo(signed.value.ordinal, h)))

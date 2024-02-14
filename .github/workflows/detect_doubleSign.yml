@@ -1,0 +1,105 @@
+name: Test double signing is detected
+
+on:
+  pull_request: { }
+  push:
+    branches:
+      - develop
+      - hotfix/*
+      - release/*
+
+jobs:
+  build:
+    name: Test double signing is detected
+    runs-on: ubuntu-20.04
+    timeout-minutes: 45
+    strategy:
+      matrix:
+        java:
+          - openjdk@1.11.0
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16.14.2
+          cache: 'npm'
+          cache-dependency-path: .github/action_scripts/package-lock.json
+
+      - name: Installing node-fetch@2.6.6
+        run: |
+          cd .github/action_scripts
+          npm i node-fetch@2.6.6
+
+      - name: Setup Java and scala
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          JAVA_VERSION: ${{ matrix.java }}
+        uses: "./.github/templates/setup_java_and_scala"
+
+      - name: Update version.sbt to github-action-test-version
+        shell: bash
+        run: |
+          echo 'ThisBuild / version := "99.99.99"' > version.sbt
+
+      - name: Generating dependencies
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          sbt --error clean compile shared/publishM2 dagL0/publishM2 kernel/publishM2 keytool/publishM2 nodeShared/publishM2 currencyL0/publishM2 currencyL1/publishM2 dagL1/publishM2
+
+      - name: Run Double Sign L0 Cluster
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          RUN_ROLLBACK: false
+        uses: "./.github/templates/attack/rollback/gl0_cluster"
+
+      - name: Run DAG L1 Cluster
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: "./.github/templates/dag_l1/dl1_cluster"
+
+      - name: Check DAG cluster
+        run: |
+          cd .github/action_scripts/check_clusters
+          node dag.js
+
+      - name: Send transactions
+        run: |
+          cd .github/action_scripts
+          npm install @stardust-collective/dag4
+          node send_transactions/index.js
+
+      - name: Wait 1 minute before check cluster
+        run: |
+          sleep 60
+
+      - name: Explore FS
+        if: always()
+        run: |
+          cd .github/config/containers
+          ls
+          ls jars
+
+      - name: Save Global L0 Genesis logs
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: rewards-global-l0-genesis-java-${{ matrix.java }}
+          path: .github/config/containers/rollback-l0/genesis/rollback-l0-genesis.log
+
+      - name: Save Global L0 - Validator 1 logs
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: rewards-global-l0-validator-1-java-${{ matrix.java }}
+          path: .github/config/containers/global-l0/validator-1/global-l0-validator-1.log
+
+      - name: Save Global L0 - Validator 2 logs
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: rewards-global-l0-validator-2-java-${{ matrix.java }}
+          path: .github/config/containers/global-l0/validator-2/global-l0-validator-2.log

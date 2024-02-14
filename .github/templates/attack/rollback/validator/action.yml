@@ -1,4 +1,4 @@
-name: Rollback L0 Validator
+name: Double Signing L0 Validator
 
 inputs:
   CL_PUBLIC_HTTP_PORT:
@@ -17,7 +17,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Running Rollback L0 validator - ${{ inputs.NODE_NUMBER }}
+    - name: Running Double Signing L0 validator - ${{ inputs.NODE_NUMBER }}
       shell: bash
       run: |
         export CL_KEYSTORE=token-key.p12

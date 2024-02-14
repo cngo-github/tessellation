@@ -82,6 +82,7 @@ lazy val doubleSignL0 = (project in file("modules/doubleSign"))
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
     buildInfoPackage := "org.tessellation.dag.l0.attack.doubleSign",
     resolvers += Resolver.mavenLocal,
+    resolvers += Resolver.githubPackages("abankowski", "http-request-signer"),
     Defaults.itSettings,
     libraryDependencies ++= Seq(
       CompilerPlugin.kindProjector,
@@ -91,7 +92,7 @@ lazy val doubleSignL0 = (project in file("modules/doubleSign"))
       Libraries.declineCore,
       Libraries.declineEffect,
       Libraries.tessellationKernel,
-      Libraries.tessellationDAGL1,
+      Libraries.tessellationDAGL0,
       Libraries.tessellationNodeShared,
       Libraries.tessellationShared,
       Libraries.tessellationKeytool,
@@ -110,6 +111,7 @@ lazy val rollbackL0 = (project in file("modules/rollback"))
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
     buildInfoPackage := "org.tessellation.dag.l0.attack.rollback",
     resolvers += Resolver.mavenLocal,
+    resolvers += Resolver.githubPackages("abankowski", "http-request-signer"),
     Defaults.itSettings,
     libraryDependencies ++= Seq(
       CompilerPlugin.kindProjector,
@@ -119,7 +121,7 @@ lazy val rollbackL0 = (project in file("modules/rollback"))
       Libraries.declineCore,
       Libraries.declineEffect,
       Libraries.tessellationKernel,
-      Libraries.tessellationDAGL1,
+      Libraries.tessellationDAGL0,
       Libraries.tessellationNodeShared,
       Libraries.tessellationShared,
       Libraries.tessellationKeytool,

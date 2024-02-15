@@ -142,7 +142,9 @@ object Main
       _ <- (method match {
         case _: RunValidator =>
           gossipDaemon.startAsRegularValidator >>
-            storages.node.tryModifyState(NodeState.Initial, NodeState.ReadyToJoin)
+            storages.node.tryModifyState(NodeState.Initial, NodeState.ReadyToJoin) >>
+            logger.info(s"Joining peers $seedlist") >>
+            sharedPrograms.joinPeers.join(seedlist.getOrElse(Set.empty))
         case m: RunRollback =>
           storages.node.tryModifyState(
             NodeState.Initial,

@@ -7,7 +7,7 @@ import cats.syntax.functor._
 
 import org.tessellation.kryo.KryoSerializer
 import org.tessellation.node.shared.config.types.SharedConfig
-import org.tessellation.node.shared.domain.cluster.programs.{Joining, PeerDiscovery}
+import org.tessellation.node.shared.domain.cluster.programs.{JoinPeers, Joining, PeerDiscovery}
 import org.tessellation.node.shared.domain.healthcheck.LocalHealthcheck
 import org.tessellation.node.shared.domain.seedlist.SeedlistEntry
 import org.tessellation.node.shared.http.p2p.clients.{ClusterClient, SignClient}
@@ -45,10 +45,12 @@ object SharedPrograms {
         versionHash,
         pd
       )
-    } yield new SharedPrograms[F](pd, joining) {}
+      joinPeers = JoinPeers.make(joining, storages.cluster, cfg.joinPeersConfig)
+    } yield new SharedPrograms[F](pd, joining, joinPeers) {}
 }
 
 sealed abstract class SharedPrograms[F[_]] private (
   val peerDiscovery: PeerDiscovery[F],
-  val joining: Joining[F]
+  val joining: Joining[F],
+  val joinPeers: JoinPeers[F]
 )

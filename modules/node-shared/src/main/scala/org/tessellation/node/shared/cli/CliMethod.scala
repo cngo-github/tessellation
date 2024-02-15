@@ -61,6 +61,8 @@ object CliMethod {
 
   val forkInfoStorageConfig: ForkInfoStorageConfig = ForkInfoStorageConfig(10)
 
+  val joinPeersConfig: JoinPeersConfig = JoinPeersConfig(3)
+
   val leavingDelay = 30.seconds
 
   def healthCheckConfig(pingEnabled: Boolean) = HealthCheckConfig(
@@ -114,6 +116,8 @@ trait CliMethod {
 
   val forkInfoStorageConfig: ForkInfoStorageConfig = CliMethod.forkInfoStorageConfig
 
+  val joinPeersConfig: JoinPeersConfig = CliMethod.joinPeersConfig
+
   lazy val nodeSharedConfig: SharedConfig = SharedConfig(
     environment,
     gossipConfig,
@@ -124,7 +128,8 @@ trait CliMethod {
     trustStorageConfig,
     PriorityPeerIds.get(environment),
     snapshotSizeConfig,
-    forkInfoStorageConfig
+    forkInfoStorageConfig,
+    joinPeersConfig
   )
 
 }

@@ -134,7 +134,7 @@ class Joining[
       .semiflatMap(discoverFrom)
       .map(_.map(toP2PContext))
 
-  private def joinAll(peerToJoin: P2PContext): F[Unit] = {
+  def joinAll(peerToJoin: P2PContext): F[Unit] = {
     type Agg = (Set[P2PContext], Set[P2PContext])
     type Res = Unit
 

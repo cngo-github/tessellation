@@ -5,6 +5,7 @@ import cats.syntax.all._
 
 import org.tessellation.node.shared.domain.seedlist.SeedlistEntry.Alias
 import org.tessellation.node.shared.domain.seedlist.snapshotOrdinalTimeline.SnapshotOrdinalTimeline
+import org.tessellation.schema.cluster.PeerToJoin
 import org.tessellation.schema.peer.PeerId
 import org.tessellation.schema.trust._
 
@@ -115,4 +116,12 @@ object SeedlistEntry {
 
   implicit val order: Order[SeedlistEntry] = Order[PeerId].contramap(_.peerId)
   implicit val ordering: Ordering[SeedlistEntry] = order.toOrdering
+
+  def toPeerToJoin(peer: SeedlistEntry): Option[PeerToJoin] = peer.connectionInfo.map { c =>
+    PeerToJoin(
+      ip = c.ipAddress,
+      p2pPort = c.p2pPort,
+      id = peer.peerId
+    )
+  }
 }

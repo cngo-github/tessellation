@@ -25,7 +25,8 @@ object types {
     trustStorage: TrustStorageConfig,
     priorityPeerIds: Option[NonEmptySet[PeerId]],
     snapshotSizeConfig: SnapshotSizeConfig,
-    forkInfoStorage: ForkInfoStorageConfig
+    forkInfoStorage: ForkInfoStorageConfig,
+    joinPeersConfig: JoinPeersConfig
   )
 
   case class SnapshotSizeConfig(
@@ -124,6 +125,10 @@ object types {
 
   case class ForkInfoStorageConfig(
     maxSize: PosInt
+  )
+
+  case class JoinPeersConfig(
+    maxRetries: PosInt
   )
 
 }

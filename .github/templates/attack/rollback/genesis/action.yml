@@ -1,0 +1,73 @@
+name: Double Signing Global L0 Genesis
+
+inputs:
+  CL_PUBLIC_HTTP_PORT:
+    required: true
+  CL_P2P_HTTP_PORT:
+    required: true
+  CL_CLI_HTTP_PORT:
+    required: true
+  RUN_ROLLBACK:
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - name: Create directories
+      shell: bash
+      run: |
+        cd .github/config
+        mkdir -p containers/
+        cd containers
+        mkdir rollback-l0
+        mkdir -p jars
+
+    - name: Copy genesis to Double Signing L0
+      shell: bash
+      run: |
+        cd .github/config
+        mkdir containers/rollback-l0/genesis
+        cp genesis.csv containers/rollback-l0/genesis
+
+    - name: Generate Keytool & Wallet JAR
+      shell: bash
+      run: |
+        sbt keytool/assembly wallet/assembly
+        
+        mv modules/keytool/target/scala-2.13/tessellation-keytool-assembly-* .github/config/containers/jars/cl-keytool.jar
+        mv modules/wallet/target/scala-2.13/tessellation-wallet-assembly-* .github/config/containers/jars/cl-wallet.jar
+
+    - name: Generate Double Signing L0 JAR
+      shell: bash
+      run: |
+        cd .github/templates/project_template/
+
+        if [[ "${{inputs.RUN_ROLLBACK}}" != "" ]]; then
+          echo "Testing rollback logic"
+          cp ../../assets/rollback_attack.txt  modules/dag/l0/src/main/scala/org/tessellation/dag/l0/attack/doubleSign/Main.scala
+        fi
+        
+        sbt doubleSignL0/assembly
+        mv modules/doubleSign/target/scala-2.13/double-signing-gl0-assembly-* ../../config/containers/jars/doubleSign-l0.jar
+
+    - name: Running rollback-l0
+      shell: bash
+      run: |
+        export CL_KEYSTORE=token-key.p12
+        export CL_KEYALIAS=token-key
+        export CL_PASSWORD=password
+        
+        cd .github/config/containers/rollback-l0/genesis
+        
+        java -jar ../../jars/cl-keytool.jar generate
+        
+        export CL_PUBLIC_HTTP_PORT=${{ inputs.CL_PUBLIC_HTTP_PORT }}
+        export CL_P2P_HTTP_PORT=${{ inputs.CL_P2P_HTTP_PORT }}
+        export CL_CLI_HTTP_PORT=${{ inputs.CL_CLI_HTTP_PORT }}
+        export CL_APP_ENV=dev
+        export CL_ENV=dev
+        export CL_COLLATERAL=0
+        
+        nohup java -jar ../../jars/rollback-l0.jar run-genesis genesis.csv --ip 127.0.0.1 > rollback-l0-genesis.log 2>&1 &
+        
+        node ../../../../action_scripts/check_if_node_started/index.js -url=http://127.0.0.1:9000/node/info -cluster_name=Rollback-L0

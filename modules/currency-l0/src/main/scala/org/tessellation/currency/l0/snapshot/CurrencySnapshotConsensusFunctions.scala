@@ -13,7 +13,6 @@ import org.tessellation.currency.l0.snapshot.services.StateChannelSnapshotServic
 import org.tessellation.currency.schema.currency._
 import org.tessellation.kryo.KryoSerializer
 import org.tessellation.node.shared.domain.consensus.ConsensusFunctions
-import org.tessellation.node.shared.domain.gossip.Gossip
 import org.tessellation.node.shared.domain.rewards.Rewards
 import org.tessellation.node.shared.infrastructure.consensus.trigger.ConsensusTrigger
 import org.tessellation.node.shared.infrastructure.snapshot._
@@ -42,8 +41,8 @@ object CurrencySnapshotConsensusFunctions {
     rewards: Option[Rewards[F, CurrencySnapshotStateProof, CurrencyIncrementalSnapshot, CurrencySnapshotEvent]],
     currencySnapshotCreator: CurrencySnapshotCreator[F],
     currencySnapshotValidator: CurrencySnapshotValidator[F],
-    gossip: Gossip[F],
-    maybeDataApplication: Option[BaseDataApplicationL0Service[F]]
+    maybeDataApplication: Option[BaseDataApplicationL0Service[F]],
+    gossipForkInfo: GossipForkInfo[F, CurrencyIncrementalSnapshot]
   ): CurrencySnapshotConsensusFunctions[F] = new CurrencySnapshotConsensusFunctions[F] {
 
     def getRequiredCollateral: Amount = collateral
@@ -55,7 +54,7 @@ object CurrencySnapshotConsensusFunctions {
       context: CurrencySnapshotContext
     ): F[Unit] =
       stateChannelSnapshotService.consume(signedArtifact, context) >>
-        gossipForkInfo(gossip, signedArtifact) >>
+        gossipForkInfo.gossip(signedArtifact) >>
         maybeDataApplication.traverse_ { da =>
           signedArtifact.toHashed >>= da.onSnapshotConsensusResult
         }

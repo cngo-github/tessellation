@@ -18,7 +18,7 @@ import org.tessellation.node.shared.domain.rewards.Rewards
 import org.tessellation.node.shared.domain.seedlist.SeedlistEntry
 import org.tessellation.node.shared.infrastructure.consensus.Consensus
 import org.tessellation.node.shared.infrastructure.metrics.Metrics
-import org.tessellation.node.shared.infrastructure.snapshot.{CurrencySnapshotCreator, CurrencySnapshotValidator, SnapshotConsensus}
+import org.tessellation.node.shared.infrastructure.snapshot._
 import org.tessellation.schema.SnapshotOrdinal
 import org.tessellation.schema.balance.Amount
 import org.tessellation.schema.peer.PeerId
@@ -60,8 +60,8 @@ object CurrencySnapshotConsensus {
         maybeRewards,
         creator,
         validator,
-        gossip,
-        maybeDataApplication
+        maybeDataApplication,
+        GossipForkInfo.make(gossip)
       ),
       gossip,
       selfId,
